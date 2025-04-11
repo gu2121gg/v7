@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de PDF</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f3f4f6; /* Cor de fundo claro */
+      }
+      #pdf-container {
+        width: 95%;
+        max-width: 1200px;
+        height: 90vh;
+        margin: 2rem auto; /* Centraliza e adiciona margem */
+        background-color: #fff; /* Fundo branco para o container do PDF */
+        border-radius: 0.75rem; /* Bordas arredondadas */
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Sombras mais pronunciadas */
+        overflow: hidden;  /* Importante para o iframe */
+        display: none; /* Inicialmente скрыто */
+        transition: all 0.3s ease; /* Transição suave para exibir */
+      }
+      #pdf-container.mostrar {
+        display: block; /* Exibe o container do PDF */
+        /* Adiciona uma animação de entrada mais suave */
+        opacity: 1;
+        transform: translateY(0);
+      }
+      iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+      #mensagem-pagamento {
+        position: fixed; /* Fixa na tela */
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: rgba(255, 255, 255, 0.95); /* Fundo branco полупрозрачный, mais claro */
+        color: #1a202c;  /* Cor do texto preto почти */
+        padding: 2rem;
+        border-radius: 1rem; /* Bordas mais arredondadas */
+        text-align: center;
+        font-size: 1.25rem; /* Tamanho da fonte увеличен */
+        z-index: 10;
+        box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.15), 0 6px 8px -4px rgba(0, 0, 0, 0.1); /* Sombra mais forte */
+      }
+      .visualizar-pdf{
+        margin-top: 2rem;
+      }
+      .visualizar-pdf button{
+        transition: all 0.2s ease; /* Transição suave para o botão */
+      }
+      .visualizar-pdf button:hover {
+          transform: translateY(-2px); /* Levemente поднятие при наведении */
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Add shadow on hover */
+      }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto mt-8 p-4 bg-white rounded-lg shadow-md">
+        <h1 class="text-2xl font-semibold text-gray-800 mb-6 text-center">Visualizar Livro</h1>
+        <div id="pdf-container" class="hidden">
+            <iframe id="pdf-frame" src="" frameborder="0"></iframe>
+        </div>
+        <div id="mensagem-pagamento" class="hidden">
+             Você precisa ser um usuário pago para acessar este conteúdo.
+        </div>
+         <div class="visualizar-pdf">
+             <button onclick="exibirPDF()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Visualizar Livro</button>
+         </div>
+    </div>
+
+    <script>
+        const pdfContainer = document.getElementById('pdf-container');
+        const pdfFrame = document.getElementById('pdf-frame');
+        const mensagemPagamento = document.getElementById('mensagem-pagamento');
+        //const pdfUrl = ""; // Substitua pela URL do seu PDF no Google Drive
+        const pdfUrl = "https://drive.google.com/file/d/1WY4V7he3e29jcVMeO1tdFh7MOK3pRzI-/preview"
+
+        // Configuração do Firebase
+        const firebaseConfig = {
+  apiKey: "AIzaSyDOqjTZ2edf2puBFkZrJm1DN-vc5iOqvAo",
+  authDomain: "livros-9cd3a.firebaseapp.com",
+  databaseURL: "https://livros-9cd3a-default-rtdb.firebaseio.com",
+  projectId: "livros-9cd3a",
+  storageBucket: "livros-9cd3a.firebasestorage.app",
+  messagingSenderId: "425870272898",
+  appId: "1:425870272898:web:4031f4c6511c4dcd49079b"
+};
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+
+
+        function verificarStatusPagamento(user, callback) {
+            db.collection('users').doc(user.uid).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        if (userData.pago && userData.expirationDate && userData.expirationDate.toDate() > new Date()) {
+                            // O usuário é pago e a assinatura está ativa
+                            callback(); // Chama o callback para exibir o PDF
+                        } else {
+                            // O usuário não é pago ou a assinatura expirou
+                            mensagemPagamento.classList.remove('hidden'); // Exibe a mensagem de pagamento
+                            // Oculta o pdf container
+                            pdfContainer.classList.add('hidden');
+                        }
+                    } else {
+                         mensagemPagamento.classList.remove('hidden'); // Exibe a mensagem de pagamento
+                         pdfContainer.classList.add('hidden');
+                    }
+                })
+                .catch(error => {
+                    console.error("Erro ao obter dados do usuário:", error);
+                    mensagemPagamento.classList.remove('hidden'); // Exibe a mensagem de pagamento
+                    pdfContainer.classList.add('hidden');
+                });
+        }
+
+
+
+        function exibirPDF() {
+           auth.onAuthStateChanged(user => {
+                if (user) {
+                    verificarStatusPagamento(user, () => {
+                        pdfContainer.classList.remove('hidden');
+                        pdfContainer.classList.add('mostrar'); // Adiciona a classe para exibir com transição
+                        pdfFrame.src = pdfUrl;
+                    });
+                } else {
+                     window.location.href = 'index.html';
+                }
+           })
+        }
+
+
+    </script>
+</body>
+</html>

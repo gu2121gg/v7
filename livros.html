@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livraria Online</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-image: url(assets/LAYOUT.png);
+        }
+        /* Estilos para o menu */
+        #menu-categorias {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #menu-categorias.mostrar {
+            display: flex;
+        }
+
+        #menu-categorias .conteudo {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #menu-categorias ul {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+
+        #menu-categorias li {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        #menu-categorias li:last-child {
+            border-bottom: none;
+        }
+
+        #menu-categorias a {
+            color: #4a5568;
+            text-decoration: none;
+            display: block;
+            transition: color 0.2s ease;
+        }
+
+        #menu-categorias a:hover {
+            color: #6b7280;
+        }
+
+        #menu-categorias .fechar-menu {
+            text-align: right;
+        }
+
+        #menu-categorias .fechar-menu button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #718096;
+            cursor: pointer;
+            padding: 5px;
+            transition: color 0.2s ease;
+        }
+
+        #menu-categorias .fechar-menu button:hover {
+            color: #374151;
+        }
+
+        /* Estilos para os cards */
+        .livro-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .livro-card:hover {
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .livro-card img {
+            width: 100%; /* Garante que a imagem tenha 100% da largura do container */
+            height: auto;
+            max-height: 550px; /* Limita a altura máxima da imagem */
+            object-fit: contain; /* Recorta a imagem para preencher o container, mantendo a proporção */
+        }
+
+        .livro-card .p-4 {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .livro-card h2 {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+
+        .livro-card p {
+            font-size: 0.9em;
+            color: #4b5563;
+        }
+        /* Ajustes para os cards ficarem lado a lado */
+        .livros-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center; /* Centraliza os cards */
+        }
+
+        .livro-card {
+            width: calc(100% - 1rem); /* 100% menos o gap */
+            max-width: 300px; /* Largura máxima para cada card */
+        }
+
+        @media (min-width: 640px) { /* sm: */
+            .livro-card {
+                width: calc(50% - 1rem); /* 50% menos o gap */
+            }
+        }
+
+        @media (min-width: 768px) { /* md: */
+            .livro-card {
+                width: calc(33.33% - 1rem); /* 33.33% menos o gap */
+            }
+        }
+
+        @media (min-width: 1024px) { /* lg: */
+            .livro-card {
+                width: calc(25% - 1rem); /* 25% menos o gap */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <header class="bg-indigo-500 text-white py-4 text-center rounded-b-md shadow-md">
+        <div class="flex justify-between items-center">
+            <button id="abrir-menu" class="text-white focus:outline-none ml-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+            </button>
+            <h1 class="text-2xl font-semibold">Bem-vindo</h1>
+            <div id="user-info"></div>
+        </div>
+        <p class="text-lg">Encontre seu próximo livro favorito!</p>
+    </header>
+
+    <main class="container mx-auto mt-6 p-4">
+        <section class="livros-container">
+            <div class="livro-card">
+                <a href="livro28.html" target="_blank" rel="noopener noreferrer">
+                    <img src="capas/livro28.jpg" alt="Dom Quixote">
+                    <div class="p-4">
+                        <h2 class="text-lg font-semibold">Dom Quixote</h2>
+                        <p class="text-gray-600"></p>
+                    </div>
+                </a>
+            </div>
+            <div class="livro-card">
+                <a href="livro24.html" target="_blank" rel="noopener noreferrer">
+                    <img src="capas/livro21.jpg" alt="dracula">
+                    <div class="p-4">
+                        <h2 class="text-lg font-semibold">Dom Quixote</h2>
+                        <p class="text-gray-600">Miguel de Cervantes</p>
+                    </div>
+                </a>
+            </div>
+            <div class="livro-card">
+                <a href="livro24.html" target="_blank" rel="noopener noreferrer">
+                    <img src="capas/livro22.jpg" alt="Dom Quixote">
+                    <div class="p-4">
+                        <h2 class="text-lg font-semibold">Dom Quixote</h2>
+                        <p class="text-gray-600">Miguel de Cervantes</p>
+                    </div>
+                </a>
+            </div>
+            <div class="livro-card">
+                <a href="livro26.html" target="_blank" rel="noopener noreferrer">
+                    <img src="capas/livro26.jpg" alt="Dom Quixote">
+                    <div class="p-4">
+                        <h2 class="text-lg font-semibold">Dom Quixote</h2>
+                        <p class="text-gray-600">Miguel de Cervantes</p>
+                    </div>
+                </a>
+            </div>
+            <div class="livro-card">
+                <a href="livro27.html" target="_blank" rel="noopener noreferrer">
+                    <img src="capas/livro27.jpg" alt="Dom Quixote">
+                    <div class="p-4">
+                        <h2 class="text-lg font-semibold">Dom Quixote</h2>
+                        <p class="text-gray-600">Miguel de Cervantes</p>
+                    </div>
+                </a>
+            </div>
+            <div class="livro-card">
+                <a href="livro30.html" target="_blank" rel="noopener noreferrer">
+                    <img src="capas/livro25.jpg" alt="Dom Quixote">
+                    <div class="p-4">
+                        <h2 class="text-lg font-semibold">Dom Quixote</h2>
+                        <p class="text-gray-600">Miguel de Cervantes</p>
+                    </div>
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-800 text-white py-4 text-center rounded-t-md mt-8 shadow-md">
+        <p>© 2025 Livraria Online. Todos os direitos reservados.</p>
+    </footer>
+
+    <div id="menu-categorias" class="hidden">
+        <div class="conteudo rounded-md shadow-lg">
+            <div class="fechar-menu">
+                <button id="fechar-menu">✕</button>
+            </div>
+            <h3 class="text-lg font-semibold mb-4">Categorias</h3>
+            <ul>
+                <li><a href="acao.html">Ação</a></li>
+                <li><a href="ficcao-cientifica.html">Ficção Científica</a></li>
+                <li><a href="romance.html">Romance</a></li>
+                <li><a href="fantasia.html">Fantasia</a></li>
+                <li><a href="drama.html">Drama</a></li>
+                <li><a href="infantil.html">Infantil</a></li>
+                <li><a href="literatura-brasileira.html">Literatura Brasileira</a></li>
+                <li><a href="terror.html">Terror</a></li>
+                <li><a href="suspense.html">Suspense</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+  apiKey: "AIzaSyDOqjTZ2edf2puBFkZrJm1DN-vc5iOqvAo",
+  authDomain: "livros-9cd3a.firebaseapp.com",
+  databaseURL: "https://livros-9cd3a-default-rtdb.firebaseio.com",
+  projectId: "livros-9cd3a",
+  storageBucket: "livros-9cd3a.firebasestorage.app",
+  messagingSenderId: "425870272898",
+  appId: "1:425870272898:web:4031f4c6511c4dcd49079b"
+};
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const abrirMenuBtn = document.getElementById('abrir-menu');
+        const menuCategorias = document.getElementById('menu-categorias');
+        const fecharMenuBtn = document.getElementById('fechar-menu');
+        const linksMenu = menuCategorias.querySelectorAll('a');
+        const userInfoDiv = document.getElementById('user-info');
+
+        abrirMenuBtn.addEventListener('click', () => {
+            menuCategorias.classList.add('mostrar');
+            document.body.style.overflow = 'hidden';
+        });
+
+        fecharMenuBtn.addEventListener('click', () => {
+            menuCategorias.classList.remove('mostrar');
+            document.body.style.overflow = '';
+        });
+
+        linksMenu.forEach(link => {
+            link.addEventListener('click', () => {
+                menuCategorias.classList.remove('mostrar');
+                document.body.style.overflow = '';
+            });
+        });
+
+        menuCategorias.addEventListener('click', (event) => {
+            if (event.target.id === 'menu-categorias') {
+                menuCategorias.classList.remove('mostrar');
+                document.body.style.overflow = '';
+            }
+        });
+
+        function verificarStatusPagamento() {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    userInfoDiv.textContent = `Logado como: ${user.email}`;
+                    verificarPagamentoUsuario(user);
+                } else {
+                    // Redirecionar para a página de login (index.html)
+                    window.location.href = 'index.html';
+                }
+            });
+        }
+
+        function verificarPagamentoUsuario(user) {
+            db.collection('users').doc(user.uid).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        if (userData.pago && userData.expirationDate && userData.expirationDate.toDate() > new Date()) {
+                            // O usuário é pago e a assinatura está ativa
+                            // Coloque aqui a lógica para exibir o conteúdo exclusivo para usuários pagos
+                            // Por exemplo:
+                            // document.getElementById('conteudo-pago').style.display = 'block';
+                            console.log("Usuário pago")
+                        } else {
+                            // O usuário não é pago ou a assinatura expirou
+                            window.location.href = 'index.html'; // Redireciona para a página inicial
+                        }
+                    } else {
+                        console.log("Usuário não encontrado")
+                        window.location.href = 'index.html'; // Redireciona para a página inicial
+                    }
+                })
+                .catch(error => {
+                    console.error("Erro ao obter dados do usuário:", error);
+                    window.location.href = 'index.html'; // Redireciona para a página inicial
+                });
+        }
+
+        verificarStatusPagamento();
+
+    </script>
+</body>
+</html>
